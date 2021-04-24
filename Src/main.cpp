@@ -7,4 +7,5 @@ using namespace std;
 
 int main(){
     cout << "Empty" << endl;
+    MemoryPool<1024> mem_pool;
 }
