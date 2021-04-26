@@ -8,13 +8,22 @@ struct BlockLink_t{
 
 template<uint32_t SIZE_POOL>
 class MemoryPool{
-    static_assert(SIZE_POOL < (1 << 31), "Size pool is too large");
-
+    
+public:
     static const uint32_t SIZE_BLOCK_INFO = sizeof(BlockLink_t);
 	static_assert(SIZE_POOL > SIZE_BLOCK_INFO * 2, "Size_pool is too small");
+	static_assert(SIZE_POOL < (1 << 31), "Size pool is too large");
 
     static const uint32_t ALLOC_FLAG = (1 << 31);
 
+	MemoryPool(const MemoryPool&) = delete;
+	MemoryPool(MemoryPool&&) = delete;
+	MemoryPool& operator = (const MemoryPool&) = delete;
+	MemoryPool& operator = (MemoryPool&&) = delete;
+
+	
+
+private:
     uint32_t free_bytes;
 
     BlockLink_t  free_mem_start;
@@ -37,6 +46,7 @@ class MemoryPool{
 		if( ( p_current_addr + p_iterator->size_block ) == ( uint8_t * ) p_free_block_to_insert ){
 			p_iterator->size_block += p_free_block_to_insert->size_block;
 			p_free_block_to_insert = p_iterator;
+			free_bytes += SIZE_BLOCK_INFO;
 		}
 	
 
@@ -48,6 +58,7 @@ class MemoryPool{
 				/* Form one big block from the two blocks. */
 				p_free_block_to_insert->size_block += p_iterator->p_next_free_block->size_block;
 				p_free_block_to_insert->p_next_free_block = p_iterator->p_next_free_block->p_next_free_block;
+				free_bytes += SIZE_BLOCK_INFO;
 			}
 			else
 			{
@@ -67,7 +78,7 @@ class MemoryPool{
 	}
 
 public:
-    MemoryPool(){
+	MemoryPool(){
         BlockLink_t *p_first_free_block;
         uint32_t total_heap_size = SIZE_POOL;
 	
@@ -83,7 +94,7 @@ public:
 
 		p_first_free_block->p_next_free_block = p_free_mem_end;	
 
-		free_bytes = p_first_free_block->size_block;
+		free_bytes = p_first_free_block->size_block - SIZE_BLOCK_INFO;
     }
 
 	void* Alloc(uint32_t wanted_size){
@@ -95,7 +106,7 @@ public:
 			
 		wanted_size += SIZE_BLOCK_INFO;
 
-		if( wanted_size <= free_bytes ){				
+		if( wanted_size <= free_bytes + SIZE_BLOCK_INFO){				
 			p_prev_block = &free_mem_start;
 			p_current_block = free_mem_start.p_next_free_block;			
 			while( ( p_current_block->size_block < wanted_size ) && ( p_current_block->p_next_free_block != nullptr ) ){
@@ -114,20 +125,21 @@ public:
 
 				/* If the block is larger than required it can be split into
 				two. */
-				if( ( p_current_block->size_block - wanted_size ) > (SIZE_BLOCK_INFO * 2) )
+				if( ( p_current_block->size_block - wanted_size ) > SIZE_BLOCK_INFO  )
 				{					
-					p_new_block = ( void * ) ( ( ( uint8_t * ) p_current_block ) + wanted_size );					
+					p_new_block = ( BlockLink_t * ) ( ( ( uint8_t * ) p_current_block ) + wanted_size );					
 
 					/* Calculate the sizes of two blocks split from the
 					single block. */
 					p_new_block->size_block = p_current_block->size_block - wanted_size;
 					p_current_block->size_block = wanted_size;
+					free_bytes -= SIZE_BLOCK_INFO;
 
 					/* Insert the new block into the list of free blocks. */
 					insert_free_block( p_new_block );
 				}				
 
-				free_bytes -= p_current_block->size_block;					
+				free_bytes -= p_current_block->size_block - SIZE_BLOCK_INFO;					
 
 				/* The block is being returned - it is allocated and owned
 				by the application and has no "next" block. */
@@ -159,7 +171,7 @@ public:
 
 					
 					/* Add this block to the list of free blocks. */
-					free_bytes += p_free_block->size_block;					
+					free_bytes += p_free_block->size_block - SIZE_BLOCK_INFO;					
 					insert_free_block( p_free_block );										
 				}				
 			}			
