@@ -24,8 +24,6 @@ TEST(HashTable, TestPrefixInc){
 
 
     ASSERT_EQ(it, h_strings.end());
-    ++it;
-    ASSERT_EQ(it, h_strings.end());
 
     ASSERT_EQ(sorted_strings.size(), 3);
 
@@ -54,8 +52,6 @@ TEST(HashTable, TestPostfixInc){
     }
 
     ASSERT_EQ(it, h_strings.end());
-    it++;
-    ASSERT_EQ(it, h_strings.end());
 
     auto set_it = sorted_strings.begin();
     ASSERT_EQ(*(set_it++), "A"); 
@@ -76,9 +72,6 @@ TEST(HashTable, TestPrefixDec){
     sorted_strings.insert(*(--it));
 
     ASSERT_EQ(it, h_strings.begin());
-    --it;
-
-    ASSERT_EQ(it, h_strings.begin());
     ASSERT_EQ(sorted_strings.size(), 3);
 
     auto set_it = sorted_strings.begin();
@@ -95,15 +88,14 @@ TEST(HashTable, TestPostfixDec){
 
     set<string> sorted_strings;
     auto it = h_strings.end();
-    --it;
 
     for(int i = 0;i < h_strings.Size();i++){
-        sorted_strings.insert(*it);
         auto tmp1 = it;
         auto tmp2 = it--;    
         ASSERT_EQ(tmp1, tmp2);
         tmp2 = it;
         ASSERT_NE(tmp1, tmp2);
+        sorted_strings.insert(*it);
     }
 
     ASSERT_EQ(it, h_strings.begin());
@@ -127,7 +119,7 @@ TEST(HashTable, TestSearch){
     h_strings.Insert("Four");
     h_strings.Insert("Five");
 
-    ASSERT_EQ(h_strings.Size(), 20005);
+    ASSERT_EQ(h_strings.Size(), 6);
     auto it = h_strings.Search("Five");
     ASSERT_EQ(*it, "Five");
 

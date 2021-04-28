@@ -3,6 +3,7 @@
 #include <functional>
 #include <variant>
 #include <memory>
+#include <cassert>
 
 enum class CellState{NIL, DELETED};
 
@@ -22,7 +23,7 @@ class HashTable {
     uint32_t  size;
 
     uint32_t h(uint32_t hash, uint32_t num_probe, uint32_t cap) const{
-        return (hash % cap + num_probe * (hash / 2 + hash % 2)) % cap;
+        return (hash % cap + num_probe * (hash % 2 == 0 ? hash + 1 : hash)) % cap;
     }
 
     void extend_capacity(uint32_t new_cap) {
@@ -35,8 +36,11 @@ class HashTable {
         for (Cell* p_i = new_begin_addr; p_i < new_end_addr; p_i++) {
             CellAllocTrait::construct(alloc, p_i, CellState::NIL);
         }
-
+        
         for (Cell* p_i = begin_addr, *new_p_i = new_begin_addr; p_i < end_addr; p_i++, new_p_i++) {
+            if(std::holds_alternative<CellState>(*p_i))
+                continue;
+
             for (uint32_t num_probe = 0; num_probe < new_cap; num_probe++) {
                 uint32_t cur_idx = h(Hash{}(std::get<T>(*p_i)), num_probe, new_cap);
                 if (std::holds_alternative<CellState>(new_begin_addr[cur_idx])) {
@@ -64,8 +68,7 @@ class HashTable {
                                                                                 begin_addr(i_begin_addr),
                                                                                 end_addr(i_end_addr) {}
         iterator& operator++() {
-            if (p_idx == end_addr)
-                return *this;
+            assert(p_idx != end_addr);
 
             do {
                 p_idx++;
@@ -81,8 +84,7 @@ class HashTable {
         }
 
         iterator& operator--() {
-            if (p_idx == begin_addr)
-                return *this;
+            assert(p_idx != begin_addr);
 
             Cell* tmp = p_idx;
 
@@ -124,6 +126,18 @@ class HashTable {
         CellAllocTrait::construct(alloc, begin_addr, CellState::NIL);
     }
 
+    ~HashTable() {
+        Clear();
+    }
+
+    void Clear(){
+        for(Cell* i_p = begin_addr;i_p < end_addr;i_p++){
+            CellAllocTrait::destroy(alloc, i_p);
+        }
+
+        CellAllocTrait::deallocate(alloc, begin_addr, end_addr - begin_addr);
+    }
+
     iterator begin() const{
         Cell* tmp = begin_addr;
         while (std::holds_alternative<CellState>(*tmp) && tmp != end_addr) {
@@ -138,7 +152,9 @@ class HashTable {
     }
 
     iterator Insert(T&& value) {
-        if ((size * 100.0) / Capacity() > OCCUPANCY_PERCENT) {
+        if(Capacity() == 0){
+            extend_capacity(INIT_SIZE);
+        }else if ((size * 100.0) / Capacity() > OCCUPANCY_PERCENT) {
             extend_capacity(Capacity() * 2);
         }
 
@@ -150,6 +166,8 @@ class HashTable {
 
                 size++;
                 return iterator(begin_addr + cur_idx, begin_addr, end_addr);
+            }else if(std::get<T>(begin_addr[cur_idx]) == value){
+                return end();
             }
         }
 
@@ -169,6 +187,9 @@ class HashTable {
     iterator Search(const T& value) const{
         for (uint32_t num_probe = 0; num_probe < Capacity(); num_probe++) {
             uint32_t cur_idx = h(Hash{}(value), num_probe, Capacity());
+            if(std::holds_alternative<CellState>(begin_addr[cur_idx]))
+                return end();
+
             if (std::get<T>(begin_addr[cur_idx]) == value) {
                 return iterator(begin_addr + cur_idx, begin_addr, end_addr);
             }
