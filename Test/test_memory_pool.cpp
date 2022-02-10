@@ -31,7 +31,7 @@ TEST(MemoryPool, CheckSizePool){
 
     {
         const uint32_t SIZE_B_INF = MemoryPool<47>::SIZE_BLOCK_INFO;
-        const int ALLOC_SIZE = 2;
+        const int ALLOC_SIZE = 8;
 
         const uint32_t SIZE_POOL =  4 * SIZE_B_INF + 3 * ALLOC_SIZE;
         MemoryPool<SIZE_POOL> mem_pool;        
