@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <cstdlib>
 
 template<uint32_t SIZE_POOL>
 class MemoryPool {
@@ -11,6 +10,9 @@ class MemoryPool {
 
 public:
 	static const uint32_t SIZE_BLOCK_INFO = sizeof(BlockLink_t);
+	static const uint32_t BYTE_ALIGNMENT_MASK = 0x0007;
+	static const uint32_t BYTE_ALIGNMENT = 8;
+
 	static_assert(SIZE_POOL > SIZE_BLOCK_INFO * 2, "Size_pool is too small");
 	static_assert(SIZE_POOL < (1 << 31), "Size pool is too large");
 
@@ -28,7 +30,7 @@ private:
 
 	BlockLink_t  free_mem_start;
 	BlockLink_t* p_free_mem_end;
-	uint8_t* mem_pool;
+	uint8_t mem_pool[SIZE_POOL];
 
 	void insert_free_block(BlockLink_t* p_free_block_to_insert) {
 		BlockLink_t* p_iterator;
@@ -80,9 +82,6 @@ private:
 public:
 	MemoryPool() {
 		BlockLink_t *p_first_free_block;
-		uint32_t total_heap_size = SIZE_POOL;
-
-		mem_pool = (uint8_t*)malloc(SIZE_POOL);
 
 		free_mem_start.p_next_free_block = (BlockLink_t*)mem_pool;
 		free_mem_start.size_block = 0;
@@ -99,10 +98,6 @@ public:
 		free_bytes = p_first_free_block->size_block - SIZE_BLOCK_INFO;
 	}
 
-	~MemoryPool() {
-		free(mem_pool);
-	}
-
 	void* Alloc(uint32_t wanted_size) {
 		BlockLink_t* p_current_block;
 		BlockLink_t* p_prev_block;
@@ -111,6 +106,11 @@ public:
 		void *p_return = nullptr;
 
 		wanted_size += SIZE_BLOCK_INFO;
+
+		if ((wanted_size & BYTE_ALIGNMENT_MASK) != 0x00) {
+			/* Byte alignment required. */
+			wanted_size += (BYTE_ALIGNMENT - (wanted_size & BYTE_ALIGNMENT_MASK));
+		}
 
 		if (wanted_size <= free_bytes + SIZE_BLOCK_INFO) {
 			p_prev_block = &free_mem_start;
